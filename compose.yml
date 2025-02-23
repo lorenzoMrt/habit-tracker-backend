@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://postgres:password@db:5432/habit_tracker
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: habit_tracker
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  migrate:
+    image: postgres:latest
+    volumes:
+      - ./infrastructure/db/migrations:/migrations
+    entrypoint: ["/bin/sh", "/migrations/run-migrations.sh"]
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
