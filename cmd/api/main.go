@@ -1,13 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
-	"sync"
 
 	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
 )
 
 // Habit representa la estructura de un hábito.
@@ -18,13 +19,18 @@ type Habit struct {
 	Completed   bool   `json:"completed"`
 }
 
-var (
-	habits      []Habit      // almacena los hábitos
-	nextID      = 1          // id incremental para cada hábito
-	habitsMutex sync.Mutex   // mutex para evitar condiciones de carrera
-)
+var db *sql.DB
 
 func main() {
+	var err error
+	// Connect to the PostgreSQL database
+	connStr := "user=postgres password=password dbname=habit_tracker sslmode=disable"
+	db, err = sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
 	// Crear un router usando Gorilla Mux
 	router := mux.NewRouter()
 
@@ -47,12 +53,13 @@ func createHabit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	habitsMutex.Lock()
-	habit.ID = nextID
-	nextID++
-	habit.Completed = false
-	habits = append(habits, habit)
-	habitsMutex.Unlock()
+	err := db.QueryRow(
+		"INSERT INTO habits(name, description, completed) VALUES($1, $2, $3) RETURNING id",
+		habit.Name, habit.Description, false).Scan(&habit.ID)
+	if err != nil {
+		http.Error(w, "Error al insertar en la base de datos: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -61,8 +68,22 @@ func createHabit(w http.ResponseWriter, r *http.Request) {
 
 // listHabits lista todos los hábitos registrados.
 func listHabits(w http.ResponseWriter, r *http.Request) {
-	habitsMutex.Lock()
-	defer habitsMutex.Unlock()
+	rows, err := db.Query("SELECT id, name, description, completed FROM habits")
+	if err != nil {
+		http.Error(w, "Error al consultar la base de datos: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var habits []Habit
+	for rows.Next() {
+		var habit Habit
+		if err := rows.Scan(&habit.ID, &habit.Name, &habit.Description, &habit.Completed); err != nil {
+			http.Error(w, "Error al escanear la fila: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		habits = append(habits, habit)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(habits)
@@ -77,17 +98,17 @@ func completeHabit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	habitsMutex.Lock()
-	defer habitsMutex.Unlock()
-
-	for i, habit := range habits {
-		if habit.ID == id {
-			habits[i].Completed = true
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(habits[i])
-			return
-		}
+	result, err := db.Exec("UPDATE habits SET completed = true WHERE id = $1", id)
+	if err != nil {
+		http.Error(w, "Error al actualizar la base de datos: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	http.Error(w, "Hábito no encontrado", http.StatusNotFound)
+	rowsAffected, err := result.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		http.Error(w, "Hábito no encontrado", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
