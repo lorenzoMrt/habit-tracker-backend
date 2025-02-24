@@ -33,7 +33,7 @@ func main() {
 
 	// Crear un router usando Gorilla Mux
 	router := mux.NewRouter()
-
+	router.Use(corsMiddleware)
 	// Endpoint para crear un hábito
 	router.HandleFunc("/habits", createHabit).Methods("POST")
 	// Endpoint para listar hábitos
@@ -111,4 +111,17 @@ func completeHabit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173") // Adjust the port as needed
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

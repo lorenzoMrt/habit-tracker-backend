@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   app:
@@ -21,10 +20,13 @@ services:
       POSTGRES_DB: habit_tracker
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
   migrate:
     image: postgres:latest
     volumes:
       - ./infrastructure/db/migrations:/migrations
+      - ./run-migrations.sh:/migrations/run-migrations.sh
     entrypoint: ["/bin/sh", "/migrations/run-migrations.sh"]
     depends_on:
       - db
