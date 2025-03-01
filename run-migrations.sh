@@ -7,4 +7,4 @@ until pg_isready -h db -U postgres; do
 done
 
 # Run the migrations
-psql -h db -U postgres -d habit_tracker -f /migrations/migrations.sql
+export PGPASSWORD=password psql -h db -U postgres -d habit_tracker -f /migrations/migrations.sql

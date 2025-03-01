@@ -7,18 +7,19 @@ WORKDIR /app
 # Copy go mod and sum files
 COPY go.mod go.sum ./
 
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+# Download all dependencies
 RUN go mod download
 
-# Copy the source from the current directory to the Working Directory inside the container
+# Copy the source from the current directory
 COPY . .
 
 # Build the Go app
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags "-s -w" -o main ./cmd/api
 
-
-# Start a new stage from scratch
-FROM scratch
-COPY --from=builder /app/main /main
+# Use alpine as the base image instead of scratch
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=builder /app/main .
 EXPOSE 8080
-CMD ["/main"]
+CMD ["./main"]
