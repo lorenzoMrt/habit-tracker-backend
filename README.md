@@ -14,7 +14,7 @@ The application is containerized using Docker and can be easily deployed using D
 
 ## Tech Stack
 
-- **Go**: Backend language (v1.23.4)
+- **Go**: Backend language (v1.22)
 - **PostgreSQL**: Database
 - **Gorilla Mux**: HTTP router
 - **Docker & Docker Compose**: Containerization and orchestration
@@ -106,6 +106,32 @@ curl -X GET http://localhost:8080/habits
 
 ```bash
 curl -X PUT http://localhost:8080/habits/1/complete
+```
+
+## CORS Configuration
+
+The API supports Cross-Origin Resource Sharing (CORS) to allow requests from different origins. By default, it allows requests from `http://localhost:5173`.
+
+### Environment Variables
+
+You can configure CORS settings using the following environment variables:
+
+- `ALLOWED_ORIGINS`: Comma-separated list of allowed origins (e.g., `http://localhost:5173,http://localhost:3000`). Set to `*` to allow all origins.
+- `PORT`: The port on which the server will listen (default: `8080`).
+- `DATABASE_URL`: The PostgreSQL connection string. Make sure to include `sslmode=disable` if your PostgreSQL server doesn't have SSL enabled.
+
+### Docker Compose Configuration
+
+In the `compose.yml` file, you can configure these environment variables:
+
+```yaml
+services:
+  app:
+    # ...
+    environment:
+      - DATABASE_URL=postgres://postgres:password@db:5432/habit_tracker?sslmode=disable
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://frontend:5173
+      - PORT=8080
 ```
 
 ## License
